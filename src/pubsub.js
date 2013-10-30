@@ -20,7 +20,43 @@
 		//the channel subscription hash
 		var channels = {},
 			//help minification
-			funcType = Function;
+			funcType = Function,
+			run = (function (context) {
+				if (context.postMessage instanceof funcType) {
+					//browsers with cross-origin communication support
+					//this is proven to be much faster than a timeout of 0
+					//on all the platforms that support it
+					return function (func) {
+						var pid = Math.random(),
+							proc = function (e) {
+								if (e.data === pid) {
+									console.log(pp === proc);
+									func();
+									context.removeEventListener('message', proc, true);
+								}
+							};
+
+						context.addEventListener('message', proc, true);
+						context.postMessage(pid, '*');
+					};
+				} else if (typeof context.process !== undefType && context.process.nextTick instanceof funcType) {
+					//Node, more reliable than a timer
+					return function (func) {
+						process.nextTick(func);
+					};
+				} else if (context.setTimeout instanceof funcType) {
+					//older browsers and exotic platforms,
+					//e.g. Applcelerator Titanium Mobile
+					return function (func) {
+						context.setTimeout(func, 0);
+					};
+				} else {
+					//Sad JS environment is sad :(
+					return function (func) {
+						func();
+					};
+				}
+			}(context));
 
 		return {
 			/*
@@ -57,19 +93,16 @@
 
 					//run the callbacks asynchronously,
 					//do not block the main execution process
-					setTimeout(
-						function () {
-							//executes callbacks in the order
-							//in which they were registered
-							for (x = 0; x < len; x += 1) {
-								subs[x].apply(context, params);
-							}
+					run(function () {
+						//executes callbacks in the order
+						//in which they were registered
+						for (x = 0; x < len; x += 1) {
+							subs[x].apply(context, params);
+						}
 
-							//clear references to allow garbage collection
-							subs = context = params = null;
-						},
-						0
-					);
+						//clear references to allow garbage collection
+						subs = context = params = null;
+					});
 				}
 			},
 

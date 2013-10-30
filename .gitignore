@@ -3,3 +3,7 @@
 
 # Sublime Text #
 *.sublime-*
+
+# Eclipse #
+.project
+.settings
